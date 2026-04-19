@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore, useNotificationStore } from '@/lib/store';
@@ -11,15 +11,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user } = useAuthStore();
   const router = useRouter();
   const { unreadCount, setUnreadCount } = useNotificationStore();
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (!user) { router.push('/login'); return; }
     api.get('/notifications/unread-count/').then((res) => {
       setUnreadCount(res.data.unread_count);
     }).catch(() => {});
-  }, [user, router, setUnreadCount]);
+  }, [hydrated, user, router, setUnreadCount]);
 
-  if (!user) return null;
+  if (!hydrated || !user) return null;
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>

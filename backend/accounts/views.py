@@ -2,6 +2,7 @@ from rest_framework import generics, status, permissions, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
+from django.conf import settings
 from datetime import timedelta
 from .models import User, OTPVerification
 from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer, OTPVerifySerializer
