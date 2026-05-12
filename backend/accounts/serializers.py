@@ -26,13 +26,29 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    username = serializers.CharField(label='Username or Email')
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(**data)
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        # Support login with email OR username
+        user = authenticate(username=username, password=password)
         if not user:
-            raise serializers.ValidationError("Invalid credentials.")
+            # Try finding by email
+            from .models import User as UserModel
+            try:
+                user_obj = UserModel.objects.get(email__iexact=username)
+                user = authenticate(username=user_obj.username, password=password)
+            except UserModel.DoesNotExist:
+                pass
+
+        if not user:
+            raise serializers.ValidationError("Invalid credentials. Check your username/email and password.")
+        if not user.is_active:
+            raise serializers.ValidationError("This account has been disabled.")
+
         refresh = RefreshToken.for_user(user)
         return {
             'user': UserProfileSerializer(user).data,

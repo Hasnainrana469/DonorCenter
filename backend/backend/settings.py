@@ -146,6 +146,9 @@ TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
 # Google Maps
 GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='')
 
+# Google OAuth
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
 # API Docs
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Blood Donor Connect API',

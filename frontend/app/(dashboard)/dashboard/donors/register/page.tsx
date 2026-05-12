@@ -6,15 +6,59 @@ import { z } from 'zod';
 import api from '@/lib/api';
 import { BLOOD_TYPES } from '@/lib/constants';
 
+// Pakistani hospital names — sorted alphabetically
+const PK_HOSPITALS = [
+  'Aga Khan University Hospital, Karachi',
+  'Allied Hospital, Faisalabad',
+  'Benazir Bhutto Hospital, Rawalpindi',
+  'Children Hospital, Lahore',
+  'Civil Hospital, Karachi',
+  'Combined Military Hospital (CMH), Lahore',
+  'Combined Military Hospital (CMH), Rawalpindi',
+  'DHQ Hospital, Gujranwala',
+  'DHQ Hospital, Multan',
+  'Fatima Memorial Hospital, Lahore',
+  'Gulab Devi Hospital, Lahore',
+  'Hayatabad Medical Complex, Peshawar',
+  'Holy Family Hospital, Rawalpindi',
+  'Indus Hospital, Karachi',
+  'Jinnah Hospital, Karachi',
+  'Jinnah Hospital, Lahore',
+  'Khyber Teaching Hospital, Peshawar',
+  'Lady Reading Hospital, Peshawar',
+  'Liaquat National Hospital, Karachi',
+  'Liaquat University Hospital, Hyderabad',
+  'Mayo Hospital, Lahore',
+  'Nishtar Hospital, Multan',
+  'Pakistan Institute of Medical Sciences (PIMS), Islamabad',
+  'Patel Hospital, Karachi',
+  'Polyclinic Hospital, Islamabad',
+  'Punjab Institute of Cardiology, Lahore',
+  'Quaid-e-Azam International Hospital, Islamabad',
+  'Services Hospital, Lahore',
+  'Shaukat Khanum Memorial Cancer Hospital, Lahore',
+  'Shaukat Khanum Memorial Cancer Hospital, Peshawar',
+  'Sheikh Zayed Hospital, Lahore',
+  'South City Hospital, Karachi',
+  'Ziauddin Hospital, Karachi',
+].sort();
+
 const schema = z.object({
-  blood_type: z.string().min(1, 'Required'),
-  weight: z.coerce.number().min(30),
-  age: z.coerce.number().min(18).max(65),
-  is_available: z.boolean(),
+  blood_type:         z.string().min(1, 'Required'),
+  weight:             z.coerce.number({ invalid_type_error: 'Weight must be a number' })
+                        .positive('Weight must be positive')
+                        .min(30, 'Minimum weight is 30 kg')
+                        .max(300, 'Maximum weight is 300 kg'),
+  age:                z.coerce.number({ invalid_type_error: 'Age must be a number' })
+                        .int('Age must be a whole number')
+                        .min(18, 'Minimum age is 18')
+                        .max(120, 'Age cannot exceed 120 years'),
+  is_available:       z.boolean(),
   last_donation_date: z.string().optional(),
+  hospital_name:      z.string().optional(),
   medical_conditions: z.string().optional(),
-  emergency_contact: z.string().optional(),
-  bio: z.string().optional(),
+  emergency_contact:  z.string().optional(),
+  bio:                z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -37,6 +81,16 @@ export default function DonorRegisterPage() {
     }
   };
 
+  // Block letters and minus from numeric fields
+  const blockNonNumeric = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!/[\d.]/.test(e.key) && !['Backspace','Delete','Tab','ArrowLeft','ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+  const blockMinus = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === '-') e.preventDefault();
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
@@ -46,6 +100,7 @@ export default function DonorRegisterPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="card space-y-5">
         <div className="grid grid-cols-3 gap-4">
+          {/* Blood Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Blood Type *</label>
             <select {...register('blood_type')} className="input">
@@ -54,16 +109,54 @@ export default function DonorRegisterPage() {
             </select>
             {errors.blood_type && <p className="text-red-500 text-xs mt-1">{errors.blood_type.message}</p>}
           </div>
+
+          {/* Age — max 120 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
-            <input {...register('age')} type="number" className="input" placeholder="25" />
+            <input
+              {...register('age')}
+              type="number"
+              className="input"
+              placeholder="25"
+              min={18}
+              max={120}
+              onKeyDown={(e) => { blockNonNumeric(e); blockMinus(e); }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                if (Number(el.value) > 120) el.value = '120';
+                if (Number(el.value) < 0) el.value = '';
+              }}
+            />
             {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age.message}</p>}
           </div>
+
+          {/* Weight — no letters, no minus */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
-            <input {...register('weight')} type="number" step="0.1" className="input" placeholder="70" />
+            <input
+              {...register('weight')}
+              type="number"
+              step="0.1"
+              className="input"
+              placeholder="70"
+              min={30}
+              onKeyDown={(e) => { blockNonNumeric(e); blockMinus(e); }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                if (Number(el.value) < 0) el.value = '';
+              }}
+            />
             {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight.message}</p>}
           </div>
+        </div>
+
+        {/* Hospital Name — Pakistani hospitals */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Hospital</label>
+          <select {...register('hospital_name')} className="input">
+            <option value="">Select a hospital (optional)</option>
+            {PK_HOSPITALS.map((h) => <option key={h} value={h}>{h}</option>)}
+          </select>
         </div>
 
         <div>
@@ -73,7 +166,7 @@ export default function DonorRegisterPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
-          <input {...register('emergency_contact')} className="input" placeholder="+1234567890" />
+          <input {...register('emergency_contact')} className="input" placeholder="+92 300 0000000" />
         </div>
 
         <div>

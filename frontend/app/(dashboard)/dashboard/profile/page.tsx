@@ -4,19 +4,16 @@ import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { LANGUAGES } from '@/lib/constants';
-import { User, Shield, Phone } from 'lucide-react';
+import { User } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpType, setOtpType] = useState<'phone' | 'email'>('phone');
-  const [otpCode, setOtpCode] = useState('');
   const [message, setMessage] = useState('');
 
   const { register, handleSubmit, formState: { isSubmitting } } = useForm({
     defaultValues: {
-      city: user?.city || '',
-      country: user?.country || '',
+      city:     user?.city     || '',
+      country:  user?.country  || '',
       language: user?.language || 'en',
     },
   });
@@ -28,25 +25,6 @@ export default function ProfilePage() {
       setMessage('Profile updated successfully!');
     } catch {
       setMessage('Failed to update profile.');
-    }
-  };
-
-  const sendOTP = async (type: 'phone' | 'email') => {
-    setOtpType(type);
-    await api.post('/auth/send-otp/', { otp_type: type });
-    setOtpSent(true);
-    setMessage(`OTP sent to your ${type}`);
-  };
-
-  const verifyOTP = async () => {
-    try {
-      await api.post('/auth/verify-otp/', { code: otpCode, otp_type: otpType });
-      updateUser({ [`is_${otpType}_verified`]: true } as Record<string, boolean>);
-      setMessage(`${otpType} verified successfully!`);
-      setOtpSent(false);
-      setOtpCode('');
-    } catch {
-      setMessage('Invalid OTP. Please try again.');
     }
   };
 
@@ -100,62 +78,32 @@ export default function ProfilePage() {
         </form>
       </div>
 
-      {/* Verification */}
+      {/* Account Details — verification buttons removed */}
       <div className="card">
         <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-          <Shield size={18} className="text-red-600" />
-          Account Verification
+          <User size={18} className="text-red-600" />
+          Account Details
         </h2>
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <Phone size={16} className="text-gray-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Phone Verification</p>
-                <p className="text-xs text-gray-500">{user?.phone || 'Not set'}</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Phone</p>
+              <p className="text-xs text-gray-500">{user?.phone || 'Not set'}</p>
             </div>
-            {user?.is_phone_verified ? (
+            {user?.is_phone_verified && (
               <span className="badge bg-green-100 text-green-800">✓ Verified</span>
-            ) : (
-              <button onClick={() => sendOTP('phone')} className="btn-primary text-xs py-1.5 px-3">
-                Verify
-              </button>
             )}
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <User size={16} className="text-gray-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">Email Verification</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Email</p>
+              <p className="text-xs text-gray-500">{user?.email}</p>
             </div>
-            {user?.is_email_verified ? (
+            {user?.is_email_verified && (
               <span className="badge bg-green-100 text-green-800">✓ Verified</span>
-            ) : (
-              <button onClick={() => sendOTP('email')} className="btn-primary text-xs py-1.5 px-3">
-                Verify
-              </button>
             )}
           </div>
         </div>
-
-        {otpSent && (
-          <div className="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-            <p className="text-sm font-medium text-yellow-800 mb-3">Enter the OTP sent to your {otpType}</p>
-            <div className="flex gap-3">
-              <input
-                className="input flex-1"
-                placeholder="6-digit OTP"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                maxLength={6}
-              />
-              <button onClick={verifyOTP} className="btn-primary px-4">Verify</button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

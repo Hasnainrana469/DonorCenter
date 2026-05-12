@@ -10,6 +10,69 @@ from .utils import send_otp_sms, send_otp_email
 from django.db.models import Count
 
 
+class GoogleAuthView(APIView):
+    """
+    POST /api/auth/google/
+    Body: { "id_token": "<google_id_token>", "role": "donor"|"patient" }
+    Verifies the Google ID token, creates or retrieves the user, returns JWT.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        id_token_str = request.data.get('id_token', '').strip()
+        role = request.data.get('role', 'patient')
+
+        if not id_token_str:
+            return Response({'error': 'id_token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        google_client_id = getattr(settings, 'GOOGLE_CLIENT_ID', '')
+        if not google_client_id:
+            return Response({'error': 'Google OAuth is not configured on this server.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            idinfo = google_id_token.verify_oauth2_token(
+                id_token_str,
+                google_requests.Request(),
+                google_client_id,
+            )
+        except ValueError as e:
+            return Response({'error': f'Invalid Google token: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        email = idinfo.get('email', '').lower()
+        name  = idinfo.get('name', '')
+        picture = idinfo.get('picture', '')
+
+        if not email:
+            return Response({'error': 'Could not retrieve email from Google.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get or create user
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': email.split('@')[0],
+                'role': role if role in ['donor', 'patient'] else 'patient',
+                'is_email_verified': True,
+                'profile_picture': picture,
+            }
+        )
+
+        if created:
+            # Set unusable password — Google users don't need one
+            user.set_unusable_password()
+            user.save()
+
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'user': UserProfileSerializer(user).data,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'created': created,
+        })
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
